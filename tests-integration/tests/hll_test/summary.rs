@@ -21,10 +21,10 @@ use datasketches::hll::HllUnion;
 use insta::assert_snapshot;
 
 #[test]
-fn display_empty_sketch() {
+fn summary_empty_sketch() {
     let sketch = HllSketch::new(12, HllType::Hll8).unwrap();
 
-    assert_snapshot!(sketch, @r"
+    assert_snapshot!(sketch.summary(), @r"
     HLL Sketch Summary:
       lg config k       : 12
       target type       : Hll8
@@ -36,24 +36,24 @@ fn display_empty_sketch() {
 }
 
 #[test]
-fn display_populated_sketch() {
+fn summary_populated_sketch() {
     let mut sketch = HllSketch::new(10, HllType::Hll4).unwrap();
     for value in 0..1_000 {
         sketch.update(value);
     }
 
-    let summary = sketch.to_string();
+    let summary = sketch.summary();
     assert!(summary.contains("target type       : Hll4\n"));
     assert!(summary.contains("current mode      : Hll\n"));
     assert!(!summary.contains("estimate          : 0\n"));
 }
 
 #[test]
-fn display_union() {
+fn summary_union() {
     let mut union = HllUnion::new(12).unwrap();
     union.update_value("apple");
 
-    let summary = union.to_string();
+    let summary = union.summary();
     assert!(summary.starts_with("HLL Union Summary:\n"));
     assert!(summary.contains("lg max k          : 12\n"));
     assert!(summary.contains("lg config k       : 12\n"));

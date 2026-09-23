@@ -20,10 +20,10 @@ use datasketches::cpc::CpcUnion;
 use insta::assert_snapshot;
 
 #[test]
-fn display_empty_sketch() {
+fn summary_empty_sketch() {
     let sketch = CpcSketch::new(11).unwrap();
 
-    assert_snapshot!(sketch, @r"
+    assert_snapshot!(sketch.summary(), @r"
     CPC Sketch Summary:
       flavor            : Empty
       lg k              : 11
@@ -34,24 +34,24 @@ fn display_empty_sketch() {
 }
 
 #[test]
-fn display_populated_sketch() {
+fn summary_populated_sketch() {
     let mut sketch = CpcSketch::new(11).unwrap();
     sketch.update("apple");
 
-    let summary = sketch.to_string();
+    let summary = sketch.summary();
     assert!(summary.contains("flavor            : Sparse\n"));
     assert!(summary.contains("num coupons       : 1\n"));
     assert!(!summary.contains("estimate          : 0\n"));
 }
 
 #[test]
-fn display_union() {
+fn summary_union() {
     let mut sketch = CpcSketch::new(11).unwrap();
     sketch.update("apple");
     let mut union = CpcUnion::new(11).unwrap();
     union.update(&sketch).unwrap();
 
-    assert_snapshot!(union, @r"
+    assert_snapshot!(union.summary(), @r"
     CPC Union Summary:
       lg k              : 11
       state             : Accumulator

@@ -28,7 +28,6 @@
 //! * Different modes (List, Set, Array4/6/8)
 //! * Different target HLL types
 
-use std::fmt;
 use std::hash::Hash;
 
 use crate::common::NumStdDev;
@@ -337,23 +336,24 @@ impl HllUnion {
         // The gadget's inline size is already covered by size_of::<Self>().
         size_of::<Self>() - size_of::<HllSketch>() + self.gadget.estimated_size()
     }
-}
 
-impl fmt::Display for HllUnion {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "HLL Union Summary:")?;
-        writeln!(f, "  lg max k          : {}", self.lg_max_k())?;
-        writeln!(f, "  lg config k       : {}", self.lg_config_k())?;
-        writeln!(
-            f,
-            "  lower bound       : {}",
-            self.lower_bound(NumStdDev::One)
-        )?;
-        writeln!(f, "  estimate          : {}", self.estimate())?;
-        writeln!(
-            f,
-            "  upper bound       : {}",
-            self.upper_bound(NumStdDev::One)
+    /// Returns a human-readable diagnostic summary.
+    ///
+    /// The output is for inspection and debugging. Its format may change and
+    /// should not be parsed.
+    pub fn summary(&self) -> String {
+        format!(
+            "HLL Union Summary:\n\
+             \x20\x20lg max k          : {}\n\
+             \x20\x20lg config k       : {}\n\
+             \x20\x20lower bound       : {}\n\
+             \x20\x20estimate          : {}\n\
+             \x20\x20upper bound       : {}",
+            self.lg_max_k(),
+            self.lg_config_k(),
+            self.lower_bound(NumStdDev::One),
+            self.estimate(),
+            self.upper_bound(NumStdDev::One),
         )
     }
 }

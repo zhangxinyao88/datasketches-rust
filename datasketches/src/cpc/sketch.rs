@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::fmt;
 use std::hash::Hash;
 
 use crate::codec::SketchBytes;
@@ -473,18 +472,27 @@ impl CpcSketch {
     }
 }
 
-impl fmt::Display for CpcSketch {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "CPC Sketch Summary:")?;
-        writeln!(f, "  flavor            : {:?}", self.flavor())?;
-        writeln!(f, "  lg k              : {}", self.lg_k())?;
-        writeln!(f, "  merged            : {}", self.merge_flag)?;
-        writeln!(f, "  estimate          : {}", self.estimate())?;
-        writeln!(f, "  num coupons       : {}", self.num_coupons)
-    }
-}
-
 impl CpcSketch {
+    /// Returns a human-readable diagnostic summary.
+    ///
+    /// The output is for inspection and debugging. Its format may change and
+    /// should not be parsed.
+    pub fn summary(&self) -> String {
+        format!(
+            "CPC Sketch Summary:\n\
+             \x20\x20flavor            : {:?}\n\
+             \x20\x20lg k              : {}\n\
+             \x20\x20merged            : {}\n\
+             \x20\x20estimate          : {}\n\
+             \x20\x20num coupons       : {}",
+            self.flavor(),
+            self.lg_k(),
+            self.merge_flag,
+            self.estimate(),
+            self.num_coupons,
+        )
+    }
+
     /// Serializes this `CpcSketch` to bytes.
     pub fn serialize(&self) -> Vec<u8> {
         let flavor = self.flavor();

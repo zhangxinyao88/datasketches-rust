@@ -61,8 +61,6 @@
 //! which requires doing some extra work to figure out the values of num_coupons, offset,
 //! first_interesting_column, and kxp.
 
-use std::fmt;
-
 use crate::cpc::CpcSketch;
 use crate::cpc::DEFAULT_LG_K;
 use crate::cpc::Flavor;
@@ -356,10 +354,12 @@ impl CpcUnion {
         };
         size_of::<Self>() + heap_size
     }
-}
 
-impl fmt::Display for CpcUnion {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    /// Returns a human-readable diagnostic summary.
+    ///
+    /// The output is for inspection and debugging. Its format may change and
+    /// should not be parsed.
+    pub fn summary(&self) -> String {
         let state = match &self.state {
             UnionState::Accumulator(_) => "Accumulator",
             UnionState::BitMatrix(_) => "BitMatrix",
@@ -369,10 +369,13 @@ impl fmt::Display for CpcUnion {
             UnionState::BitMatrix(matrix) => count_bits_set_in_matrix(matrix),
         };
 
-        writeln!(f, "CPC Union Summary:")?;
-        writeln!(f, "  lg k              : {}", self.lg_k())?;
-        writeln!(f, "  state             : {state}")?;
-        writeln!(f, "  num coupons       : {num_coupons}")
+        format!(
+            "CPC Union Summary:\n\
+             \x20\x20lg k              : {}\n\
+             \x20\x20state             : {state}\n\
+             \x20\x20num coupons       : {num_coupons}",
+            self.lg_k(),
+        )
     }
 }
 

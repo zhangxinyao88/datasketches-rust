@@ -20,7 +20,6 @@
 //! This module provides the main [`HllSketch`] struct, which is the primary interface
 //! for creating and using HLL sketches for cardinality estimation.
 
-use std::fmt;
 use std::hash::Hash;
 
 use crate::codec::SketchSlice;
@@ -458,10 +457,12 @@ impl HllSketch {
 
         size_of::<Self>() + heap_size
     }
-}
 
-impl fmt::Display for HllSketch {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    /// Returns a human-readable diagnostic summary.
+    ///
+    /// The output is for inspection and debugging. Its format may change and
+    /// should not be parsed.
+    pub fn summary(&self) -> String {
         let target_type = match self.target_type() {
             HllType::Hll4 => "Hll4",
             HllType::Hll6 => "Hll6",
@@ -473,20 +474,18 @@ impl fmt::Display for HllSketch {
             Mode::Array4(_) | Mode::Array6(_) | Mode::Array8(_) => "Hll",
         };
 
-        writeln!(f, "HLL Sketch Summary:")?;
-        writeln!(f, "  lg config k       : {}", self.lg_config_k())?;
-        writeln!(f, "  target type       : {target_type}")?;
-        writeln!(f, "  current mode      : {current_mode}")?;
-        writeln!(
-            f,
-            "  lower bound       : {}",
-            self.lower_bound(NumStdDev::One)
-        )?;
-        writeln!(f, "  estimate          : {}", self.estimate())?;
-        writeln!(
-            f,
-            "  upper bound       : {}",
-            self.upper_bound(NumStdDev::One)
+        format!(
+            "HLL Sketch Summary:\n\
+             \x20\x20lg config k       : {}\n\
+             \x20\x20target type       : {target_type}\n\
+             \x20\x20current mode      : {current_mode}\n\
+             \x20\x20lower bound       : {}\n\
+             \x20\x20estimate          : {}\n\
+             \x20\x20upper bound       : {}",
+            self.lg_config_k(),
+            self.lower_bound(NumStdDev::One),
+            self.estimate(),
+            self.upper_bound(NumStdDev::One),
         )
     }
 }
