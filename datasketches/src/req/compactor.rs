@@ -20,6 +20,7 @@
 //! Each level in the REQ sketch uses a compactor to maintain a bounded set of items
 //! with deterministic compaction when capacity is exceeded.
 
+use crate::common::random::random_bit;
 use crate::error::Error;
 use crate::req::INITIAL_SECTIONS_PER_COMPACTOR;
 use crate::req::MIN_K;
@@ -52,7 +53,7 @@ pub struct Compactor<T> {
 
     /// Whether this compactor is configured for high rank accuracy
     rank_accuracy: RankAccuracy,
-    /// Raw section size (may be fractional)
+    /// Raw section size (maybe fractional)
     section_size_raw: f32,
     /// Random bit for compaction
     coin: bool,
@@ -244,7 +245,7 @@ where
         if (self.state & 1) == 1 {
             self.coin = !self.coin; // flip coin for odd states
         } else {
-            self.coin = rand::random::<bool>(); // random coin flip for even states
+            self.coin = random_bit(); // random coin flip for even states
         }
         let odds = self.coin;
 

@@ -16,3 +16,4 @@
 // under the License.
 
 mod serde;
+mod update;

@@ -36,7 +36,6 @@ use crate::cpc::compression::encode_pairs;
 use crate::cpc::compression::encode_window;
 use crate::cpc::compression_data::COLUMN_PERMUTATIONS_FOR_DECODING;
 use crate::cpc::compression_data::COLUMN_PERMUTATIONS_FOR_ENCODING;
-use crate::cpc::count_bits_set_in_matrix;
 use crate::cpc::determine_correct_offset;
 use crate::cpc::determine_flavor;
 use crate::cpc::estimator::estimate;
@@ -626,6 +625,11 @@ impl CpcSketch {
     }
 
     /// Deserializes a `CpcSketch` from bytes.
+    ///
+    /// # Errors
+    ///
+    /// Returns `InvalidData` if the image is malformed or its seed hash does not match the default
+    /// seed.
     pub fn deserialize(bytes: &[u8]) -> Result<Self, Error> {
         Self::deserialize_with_seed(bytes, DEFAULT_UPDATE_SEED)
     }
@@ -791,10 +795,14 @@ impl CpcSketch {
         let payload_bytes = window_data_bytes
             .checked_add(table_data_bytes)
             .ok_or_else(|| Error::deserial("CPC payload length overflows"))?;
-        let payload = cursor
-            .remaining()
-            .get(..payload_bytes)
-            .ok_or_else(|| Error::deserial("insufficient data for CPC compressed payload"))?;
+        let available_bytes = cursor.remaining().len();
+        if available_bytes < payload_bytes {
+            return Err(Error::insufficient_data_of(
+                "CPC compressed payload",
+                format_args!("expected {payload_bytes} bytes, got {available_bytes}"),
+            ));
+        }
+        let payload = &cursor.remaining()[..payload_bytes];
         let (window_data, table_data) = payload.split_at(window_data_bytes);
         let (table, window) = match flavor {
             Flavor::Empty => (PairTable::new(2, lg_k + 6), vec![]),
@@ -944,25 +952,5 @@ impl CpcSketch {
             ((EMPIRICAL_MAX_SIZE_FACTOR * k as f64) as usize) + MAX_PREAMBLE_SIZE_BYTES
         };
         Ok(max_bytes)
-    }
-}
-
-impl CpcSketch {
-    /// Returns `true` if the sketch's internal state is valid.
-    ///
-    /// This is intended for testing and validation purposes.
-    #[doc(hidden)]
-    pub fn validate(&self) -> bool {
-        let bit_matrix = self.build_bit_matrix();
-        let num_bits_set = count_bits_set_in_matrix(&bit_matrix);
-        num_bits_set == self.num_coupons
-    }
-
-    /// Returns the number of coupons in the sketch.
-    ///
-    /// This is intended for testing and validation purposes.
-    #[doc(hidden)]
-    pub fn num_coupons(&self) -> u32 {
-        self.num_coupons
     }
 }

@@ -6,6 +6,30 @@ All significant changes to this project will be documented in this file.
 
 ### Breaking changes
 
+* Remove `BloomFilter::invert`. Bit inversion has no sound set-membership interpretation; use the new `BloomFilter::difference` for the approximate set-difference (A NOT B) use case it was meant to serve.
+* Move `SearchCriteria` from `req` to `common` and remove its `Default` implementation. Import `datasketches::common::SearchCriteria` and explicitly choose `Inclusive` or `Exclusive` for each query.
+
+### New features
+
+* Add `BloomFilter::difference` for approximate set difference: the result excludes the other filter's items exactly, while items unique to the left filter are kept unless their hash positions collide with the right filter.
+* Add KLL sketches behind the `kll` feature, with rank, quantile, PMF, and CDF queries, merging, totally ordered custom item types, a `KllFloat` adapter for non-NaN floating-point values, and serialization.
+
+### Improvements
+
+* The crate no longer has any runtime dependencies. The `kll` and `req` features previously pulled in `rand`; compaction now draws its coin from an in-tree generator.
+* Improve truncated-input diagnostics across sketch deserializers.
+* Improve hash-backed sketch update performance for integer and raw-byte inputs.
+* Improve Bloom filter membership-and-insert performance and simplify Theta-family hash table thresholds.
+
+### Bug fixes
+
+* Fix T-Digest `merge` so it preserves `min`/`max` from the other digest instead of re-deriving them from centroid means after compression.
+* T-Digest deserialization now rejects unknown or conflicting flags, reversed extrema, out-of-range values, unsorted centroids, and non-empty images without stored values.
+
+## v0.5.0 (2026-09-04)
+
+### Breaking changes
+
 * `BloomFilter::union` and `BloomFilter::intersect` now return `Result`. Callers must handle incompatible filter configurations instead of relying on a panic.
 * `CountMinSketch::merge` now returns `Result`. Callers must handle incompatible sketch configurations instead of relying on a panic.
 * `CountMinSketch::{suggest_num_buckets, suggest_num_hashes}` now return `Result`. Callers must handle invalid or unsupported targets; successful suggestions are valid inputs to `CountMinSketch::new`.
@@ -15,7 +39,7 @@ All significant changes to this project will be documented in this file.
 * `FrequentItemsSketch::new` now rejects map sizes below the minimum of 8 instead of silently rounding them up.
 * Replace `FrequentItemsSketch::epsilon_for_lg` with the fallible `epsilon_for_max_map_size`, and change `apriori_error` to accept the same maximum map size plus an unsigned stream weight. These helpers now match the constructor's units, and `max_map_size` exposes the configured value.
 * Replace the `is_f32` flag on `TDigestMut::deserialize` with separate `deserialize` and `deserialize_f32` entry points, making the serialized precision explicit at the call site.
-* Remove `CpcUnion::num_coupons`, which exposed internal union state solely for tests. Inspect the resulting `CpcSketch` when diagnostics are needed.
+* Remove `CpcSketch::{validate, num_coupons}` and `CpcUnion::num_coupons`, which exposed internal state solely for tests. Use cardinality estimates, confidence bounds, and serialization round trips to inspect observable sketch behavior.
 * Tuple sketch iterators now yield `&TupleEntry<_>` values instead of `(hash, &summary)` pairs. Use `entry.hash()` and `entry.summary()` to inspect each retained entry.
 * `ThetaIntersection::to_sketch` and `TupleIntersection::to_sketch` now return `Option`. Callers must handle `None` until the intersection receives its first successful update.
 * `BloomFilterBuilder`, `ThetaSketchBuilder`, `ThetaUnionBuilder`, `TupleSketchBuilder`, and `TupleUnionBuilder` now validate their configuration when `build` is called, and `build` returns `Result`. Callers must propagate or handle construction errors.
@@ -38,6 +62,7 @@ All significant changes to this project will be documented in this file.
 * Bloom filter accuracy construction now rejects targets that exceed the maximum serialized filter size instead of silently reducing capacity and violating the requested false-positive probability.
 * T-Digest CDF and PMF queries now accept an empty split-point slice and return the single all-values bin instead of panicking.
 * Bloom filter deserialization now rejects malformed images with inconsistent counts or payload lengths, while valid images with a dirty cached count are restored correctly.
+* Count-Min deserialization now rejects truncated counter payloads before allocating the table declared by the image header.
 * `FrequentItemsSketch` now enforces the cross-language map-size limit of `2^30` consistently. Oversized construction returns `InvalidArgument`, and malformed or oversized serialized images return `InvalidData` instead of panicking or attempting excessive allocation.
 * `FrequentItemsSketch<String>` now rejects an encoded string length that exceeds the remaining input before allocating the string buffer.
 * T-Digest compression now supports `k = u16::MAX` without overflowing.

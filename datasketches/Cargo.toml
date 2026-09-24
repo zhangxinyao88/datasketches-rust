@@ -17,7 +17,7 @@
 
 [package]
 name = "datasketches"
-version = "0.4.0"
+version = "0.5.0"
 
 edition.workspace = true
 homepage.workspace = true
@@ -43,13 +43,15 @@ countmin = []
 cpc = []
 frequencies = []
 hll = []
-req = ["dep:rand"]
+kll = []
+req = []
 tdigest = []
 theta = []
 tuple = []
 
-[dependencies]
-rand = { workspace = true, optional = true }
+[[example]]
+name = "bloom_difference"
+required-features = ["bloom"]
 
 [dev-dependencies]
 googletest = { workspace = true }

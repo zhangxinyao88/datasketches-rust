@@ -38,8 +38,6 @@ const EMPTY_FLAG_MASK: u8 = 1 << 2;
 /// * No false negatives (inserted items always return `true`)
 /// * Tunable false positive rate
 /// * Constant space usage
-///
-/// These guarantees hold until [`invert()`](Self::invert) is called; see its documentation.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BloomFilter {
     /// Hash seed for all hash functions
@@ -101,9 +99,7 @@ impl BloomFilter {
     /// ```
     pub fn contains_and_insert<T: Hash>(&mut self, item: &T) -> bool {
         let (h0, h1) = self.compute_hash(item);
-        let was_present = self.check_bits(h0, h1);
-        self.set_bits(h0, h1);
-        was_present
+        self.set_bits(h0, h1)
     }
 
     /// Inserts an item into the filter.
@@ -253,38 +249,70 @@ impl BloomFilter {
         Ok(())
     }
 
-    /// Inverts all bits in the filter.
+    /// Computes the approximate set difference with another filter via bitwise AND-NOT.
     ///
-    /// This approximately inverts the notion of set membership. After inversion, neither the
-    /// no-false-negative nor the false-positive guarantee holds: inserted items may return
-    /// `false` from [`contains()`](Self::contains), and [`is_empty()`](Self::is_empty),
-    /// [`bits_used()`](Self::bits_used), and [`load_factor()`](Self::load_factor) describe the
-    /// raw bit state rather than the inserted items.
+    /// After this operation, the filter approximates the set of items inserted into this
+    /// filter but not into `other`:
+    /// * Items inserted into `other` always return `false`: they are excluded exactly.
+    /// * Items inserted only into this filter keep returning `true` as long as none of their hash
+    ///   positions is occupied in `other`. Unlike [`union()`](Self::union) and
+    ///   [`intersect()`](Self::intersect), this operation can drop items, with a probability that
+    ///   grows with `other`'s load factor.
+    /// * Items never inserted into this filter may return `true` (false positives), at a rate no
+    ///   higher than this filter's false positive rate before the operation.
+    ///
+    /// This is the transformation other DataSketches libraries expose as A NOT B.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the filters are not compatible (different size, number of hashes, or
+    /// seed). Use [`is_compatible()`](Self::is_compatible) to check first when an error is not
+    /// expected.
     ///
     /// # Examples
     ///
     /// ```
     /// use datasketches::bloom::BloomFilterBuilder;
     ///
-    /// let mut filter = BloomFilterBuilder::with_accuracy(100, 0.01)
+    /// let mut left = BloomFilterBuilder::with_accuracy(100, 0.01)
+    ///     .seed(123)
     ///     .build()
     ///     .unwrap();
-    /// filter.insert("apple");
+    /// let mut right = BloomFilterBuilder::with_accuracy(100, 0.01)
+    ///     .seed(123)
+    ///     .build()
+    ///     .unwrap();
     ///
-    /// filter.invert();
-    /// // Now "apple" probably returns false, and most other items return true
+    /// left.insert("apple");
+    /// left.insert("shared");
+    /// right.insert("grape");
+    /// right.insert("shared");
+    ///
+    /// left.difference(&right).unwrap();
+    /// assert!(left.contains(&"apple")); // Only in the left filter
+    /// assert!(!left.contains(&"shared")); // In both filters: excluded exactly
     /// ```
-    pub fn invert(&mut self) {
-        for word in &mut self.bit_array {
-            *word = !*word;
+    pub fn difference(&mut self, other: &BloomFilter) -> Result<(), Error> {
+        if !self.is_compatible(other) {
+            return Err(Error::invalid_argument(
+                "Bloom filters must have matching capacity, number of hashes, and seed",
+            ));
         }
-        self.num_bits_set = self.capacity() as u64 - self.num_bits_set;
+
+        // Count bits during difference operation (single pass)
+        let mut num_bits_set = 0;
+        for (word, other_word) in self.bit_array.iter_mut().zip(&other.bit_array) {
+            *word &= !*other_word;
+            num_bits_set += word.count_ones() as u64;
+        }
+        self.num_bits_set = num_bits_set;
+        Ok(())
     }
 
-    /// Returns whether no bits are set in the filter.
+    /// Returns `true` if no bits are set in the filter.
     ///
-    /// In normal operation this means no items were inserted. After [`invert()`](Self::invert),
-    /// it reports the raw bit state instead.
+    /// This is the case when no items were inserted, after [`reset()`](Self::reset), or when a
+    /// set operation cleared every bit.
     pub fn is_empty(&self) -> bool {
         self.num_bits_set == 0
     }
@@ -495,11 +523,12 @@ impl BloomFilter {
                 .checked_add(1)
                 .and_then(|words| words.checked_mul(size_of::<u64>()))
                 .ok_or_else(|| Error::deserial("Bloom filter payload length overflows"))?;
-            if payload_bytes > cursor.remaining().len() {
-                return Err(Error::insufficient_data(format!(
-                    "Bloom filter payload requires {payload_bytes} bytes, got {}",
-                    cursor.remaining().len()
-                )));
+            let available_bytes = cursor.remaining().len();
+            if available_bytes < payload_bytes {
+                return Err(Error::insufficient_data_of(
+                    "Bloom filter payload",
+                    format_args!("expected {payload_bytes} bytes, got {available_bytes}"),
+                ));
             }
         }
         let mut bit_array = vec![0u64; num_words].into_boxed_slice();
@@ -563,12 +592,14 @@ impl BloomFilter {
         true
     }
 
-    /// Sets all k bits for the given hash values.
-    fn set_bits(&mut self, h0: u64, h1: u64) {
+    /// Sets all k bits and returns whether they were already set.
+    fn set_bits(&mut self, h0: u64, h1: u64) -> bool {
+        let mut were_all_set = true;
         for i in 1..=self.num_hashes {
             let bit_index = self.compute_bit_index(h0, h1, i);
-            self.set_bit(bit_index);
+            were_all_set &= self.set_bit(bit_index);
         }
+        were_all_set
     }
 
     /// Computes a bit index using double hashing (Kirsch-Mitzenmacher).
@@ -592,16 +623,18 @@ impl BloomFilter {
         (self.bit_array[word_index] & mask) != 0
     }
 
-    /// Sets a single bit and updates the count if it wasn't already set.
-    fn set_bit(&mut self, bit_index: usize) {
+    /// Sets a single bit and returns whether it was already set.
+    fn set_bit(&mut self, bit_index: usize) -> bool {
         let word_index = bit_index >> 6; // Equivalent to bit_index / 64
         let bit_offset = bit_index & 63; // Equivalent to bit_index % 64
         let mask = 1u64 << bit_offset;
+        let was_set = (self.bit_array[word_index] & mask) != 0;
 
-        if (self.bit_array[word_index] & mask) == 0 {
+        if !was_set {
             self.bit_array[word_index] |= mask;
             self.num_bits_set += 1;
         }
+        was_set
     }
 
     /// Returns the estimated size of the filter in bytes.
