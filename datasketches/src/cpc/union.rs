@@ -373,7 +373,7 @@ impl CpcUnion {
             "CPC Union Summary:\n\
              \x20\x20lg k              : {}\n\
              \x20\x20state             : {state}\n\
-             \x20\x20num coupons       : {num_coupons}",
+             \x20\x20num coupons       : {num_coupons}\n",
             self.lg_k(),
         )
     }

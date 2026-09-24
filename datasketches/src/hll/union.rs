@@ -348,7 +348,7 @@ impl HllUnion {
              \x20\x20lg config k       : {}\n\
              \x20\x20lower bound       : {}\n\
              \x20\x20estimate          : {}\n\
-             \x20\x20upper bound       : {}",
+             \x20\x20upper bound       : {}\n",
             self.lg_max_k(),
             self.lg_config_k(),
             self.lower_bound(NumStdDev::One),

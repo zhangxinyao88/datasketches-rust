@@ -481,7 +481,7 @@ impl HllSketch {
              \x20\x20current mode      : {current_mode}\n\
              \x20\x20lower bound       : {}\n\
              \x20\x20estimate          : {}\n\
-             \x20\x20upper bound       : {}",
+             \x20\x20upper bound       : {}\n",
             self.lg_config_k(),
             self.lower_bound(NumStdDev::One),
             self.estimate(),

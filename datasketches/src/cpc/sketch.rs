@@ -484,7 +484,7 @@ impl CpcSketch {
              \x20\x20lg k              : {}\n\
              \x20\x20merged            : {}\n\
              \x20\x20estimate          : {}\n\
-             \x20\x20num coupons       : {}",
+             \x20\x20num coupons       : {}\n",
             self.flavor(),
             self.lg_k(),
             self.merge_flag,
