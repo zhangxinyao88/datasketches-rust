@@ -16,6 +16,7 @@ All significant changes to this project will be documented in this file.
 
 ### Improvements
 
+* Improve the readability of `Debug` output for HLL and CPC sketches and unions.
 * The crate no longer has any runtime dependencies. The `kll` and `req` features previously pulled in `rand`; compaction now draws its coin from an in-tree generator.
 * Improve truncated-input diagnostics across sketch deserializers.
 * Improve hash-backed sketch update performance for integer and raw-byte inputs.
@@ -50,7 +51,6 @@ All significant changes to this project will be documented in this file.
 
 * `TDigest` can now be serialized and deserialized directly without converting through `TDigestMut` at the call site.
 * Add Relative Error Quantiles (REQ) sketches behind the `req` feature, including configurable high- or low-rank accuracy, rank, quantile, PMF, and CDF queries, typed rank confidence bounds, merging, totally ordered custom item types, the `ReqFloat` adapter for non-NaN floating-point values, and C++/Java-compatible serialization.
-* Add diagnostic `summary()` methods for HLL and CPC sketches and unions.
 
 ### Performance improvements
 

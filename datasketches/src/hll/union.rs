@@ -336,26 +336,6 @@ impl HllUnion {
         // The gadget's inline size is already covered by size_of::<Self>().
         size_of::<Self>() - size_of::<HllSketch>() + self.gadget.estimated_size()
     }
-
-    /// Returns a human-readable diagnostic summary.
-    ///
-    /// The output is for inspection and debugging. Its format may change and
-    /// should not be parsed.
-    pub fn summary(&self) -> String {
-        format!(
-            "HLL Union Summary:\n\
-             \x20\x20lg max k          : {}\n\
-             \x20\x20lg config k       : {}\n\
-             \x20\x20lower bound       : {}\n\
-             \x20\x20estimate          : {}\n\
-             \x20\x20upper bound       : {}\n",
-            self.lg_max_k(),
-            self.lg_config_k(),
-            self.lower_bound(NumStdDev::One),
-            self.estimate(),
-            self.upper_bound(NumStdDev::One),
-        )
-    }
 }
 
 /// Convert a coupon mode (List or Set) to Hll8 target type

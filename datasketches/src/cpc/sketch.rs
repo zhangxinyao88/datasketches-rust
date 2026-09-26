@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::fmt;
 use std::hash::Hash;
 
 use crate::codec::SketchBytes;
@@ -59,7 +60,7 @@ use crate::hash::compute_seed_hash;
 /// A Compressed Probabilistic Counting sketch.
 ///
 /// See the [module level documentation](super) for more.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct CpcSketch {
     // immutable config variables
     lg_k: u8,
@@ -471,27 +472,23 @@ impl CpcSketch {
     }
 }
 
-impl CpcSketch {
-    /// Returns a human-readable diagnostic summary.
-    ///
-    /// The output is for inspection and debugging. Its format may change and
-    /// should not be parsed.
-    pub fn summary(&self) -> String {
-        format!(
-            "CPC Sketch Summary:\n\
-             \x20\x20flavor            : {:?}\n\
-             \x20\x20lg k              : {}\n\
-             \x20\x20merged            : {}\n\
-             \x20\x20estimate          : {}\n\
-             \x20\x20num coupons       : {}\n",
-            self.flavor(),
-            self.lg_k(),
-            self.merge_flag,
-            self.estimate(),
-            self.num_coupons,
-        )
+impl fmt::Debug for CpcSketch {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let estimator = if self.merge_flag { "ICON" } else { "HIP" };
+        f.debug_struct("CpcSketch")
+            .field("lg_k", &self.lg_k())
+            .field("seed", &self.seed)
+            .field("flavor", &self.flavor())
+            .field("is_empty", &self.is_empty())
+            .field("merged", &self.merge_flag)
+            .field("estimator", &estimator)
+            .field("num_coupons", &self.num_coupons)
+            .field("estimate", &self.estimate())
+            .finish()
     }
+}
 
+impl CpcSketch {
     /// Serializes this `CpcSketch` to bytes.
     pub fn serialize(&self) -> Vec<u8> {
         let flavor = self.flavor();
