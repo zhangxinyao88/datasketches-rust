@@ -6,26 +6,38 @@ All significant changes to this project will be documented in this file.
 
 ### Breaking changes
 
-* Remove `BloomFilter::invert`. Bit inversion has no sound set-membership interpretation; use the new `BloomFilter::difference` for the approximate set-difference (A NOT B) use case it was meant to serve.
-* Move `SearchCriteria` from `req` to `common` and remove its `Default` implementation. Import `datasketches::common::SearchCriteria` and explicitly choose `Inclusive` or `Exclusive` for each query.
+* `BloomFilter::invert` is removed; use `BloomFilter::difference` for approximate A-not-B. The result excludes items in the right filter, but hash collisions can also remove items unique to the left filter.
+* `FrequentItemsSketch::is_empty` now returns `false` when the stream weight is nonzero, even if no items are retained. Use `num_active_items() == 0` to test for zero retained items.
+* `ReqSketch` queries now use `datasketches::common::SearchCriteria` instead of `datasketches::req::SearchCriteria`. `SearchCriteria` no longer implements `Default`; explicitly choose `Inclusive` or `Exclusive`.
 
 ### New features
 
-* Add `BloomFilter::difference` for approximate set difference: the result excludes the other filter's items exactly, while items unique to the left filter are kept unless their hash positions collide with the right filter.
-* Add KLL sketches behind the `kll` feature, with rank, quantile, PMF, and CDF queries, merging, totally ordered custom item types, a `KllFloat` adapter for non-NaN floating-point values, and serialization.
+* `KllSketch` is now available behind the `kll` feature, with rank, quantile, PMF, and CDF queries, merging, serialization, custom ordered item types, and a `KllFloat` adapter for non-NaN floating-point values.
 
 ### Improvements
 
 * Improve the readability of `Debug` output for HLL and CPC sketches and unions.
-* The crate no longer has any runtime dependencies. The `kll` and `req` features previously pulled in `rand`; compaction now draws its coin from an in-tree generator.
-* Improve truncated-input diagnostics across sketch deserializers.
-* Improve hash-backed sketch update performance for integer and raw-byte inputs.
-* Improve Bloom filter membership-and-insert performance and simplify Theta-family hash table thresholds.
+* `BloomFilter::insert` is faster for integer and raw-byte inputs. `BloomFilter::contains_and_insert` is also faster when checking already-present integer values.
+* `CountMinSketch` updates are faster for integer and raw-byte inputs.
+* `CpcSketch` updates are faster for integer and raw-byte inputs.
+* `FrequentItemsSketch` updates are faster for integer and raw-byte keys.
+* `HllSketch` updates are faster for integer and raw-byte inputs.
+* `ThetaSketch` updates are faster for integer and raw-byte inputs.
+* `TupleSketch` updates are faster for integer and raw-byte inputs.
+* Library-wide: the crate no longer depends on `rand` and has no runtime dependencies.
+* Library-wide: sketch deserializers report clearer errors for truncated input.
 
 ### Bug fixes
 
-* Fix T-Digest `merge` so it preserves `min`/`max` from the other digest instead of re-deriving them from centroid means after compression.
-* T-Digest deserialization now rejects unknown or conflicting flags, reversed extrema, out-of-range values, unsorted centroids, and non-empty images without stored values.
+* `CountMinSketch` updates now panic and merges return `InvalidArgument` if the total absolute weight would exceed the counter type's maximum. Both leave the sketch unchanged, including in release builds.
+* `CountMinSketch::upper_bound` now clamps to the counter type's maximum instead of overflowing.
+* `CountMinSketch` deserialization now returns `InvalidData` if the total absolute weight is negative or any counter's magnitude exceeds it.
+* `FrequentItemsSketch` updates and merges now panic without changing the sketch if the total stream weight would overflow, including in release builds.
+* `FrequentItemsSketch` deserialization now returns `InvalidData` if a non-empty image declares zero stream weight or the item weights sum to more than the declared stream weight.
+* `ReqSketch` updates now panic and merges return `InvalidArgument` if the stream weight would exceed `u64::MAX`. Both leave the sketch unchanged, including in release builds.
+* `TDigestMut` updates and merges now panic without changing the digest if the total weight would exceed `u64::MAX`, including in release builds.
+* `TDigestMut::merge` now preserves the true minimum and maximum from both inputs, including compressed digests.
+* `TDigest` and `TDigestMut` deserialization now returns `InvalidData` for invalid flags or extrema, out-of-range values, unsorted centroids, or non-empty images with no stored values.
 
 ## v0.5.0 (2026-09-04)
 
